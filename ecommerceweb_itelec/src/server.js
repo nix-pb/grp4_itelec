@@ -7,7 +7,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const http = require('http');
 const socketIo = require('socket.io');
-
+require('dotenv').config();
+const env = process.env || 'development';
 
 const app = express();
 const PORT = 5001; 
@@ -23,11 +24,11 @@ app.use(bodyParser.json());
 
 
 const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'Root12345@',
-  database: 'rentatool_data',
-  port: 3306,
+  host: env.DB_HOST || 'localhost',
+  user: env.DB_USERNAME || 'root',
+  password: env.DB_PASSWORD || 'Root12345@',
+  database: env.DB_NAME || 'rentatool_data',
+  port: env.DB_PORT || 3306,
 });
 
 connection.connect((err) => {
@@ -1181,13 +1182,9 @@ app.get('/api/productsshop', (req, res) => {
   res.json(sellerProducts);
 });
 
-
-
-
-
-
-
-
+app.get('/health-check', (req, res) => {
+  res.send('Backend server is up and running!');
+});
 
 
 app.listen(PORT, () => {

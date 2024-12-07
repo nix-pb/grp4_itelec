@@ -502,10 +502,10 @@ app.post('/api/buy', (req, res) => {
       }
 
       const orderId = orderResults.insertId;
-      const itemCount = quantity; 
-      const itemPrice = price;  
+      const itemCount = quantity;
+      const itemPrice = price;
       const subtotal = itemCount * itemPrice;
-      const shippingFee = 50; 
+      const shippingFee = 50;
 
       connection.query(
         sqlPayment,

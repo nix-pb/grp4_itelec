@@ -41,13 +41,6 @@ const Home = () => {
     return (
         <>
             <Header />
-            <div className='container'>
-                <div className='row'>
-                    <button onClick={goToAdminHome} className='admin_button'>Admin Dashboard</button>
-                    <button onClick={goToOrders} className='orders_button'>Orders</button>
-                    <button onClick={goToCartList} className='orders_button'>Cart</button>
-                </div>
-            </div>
             <div className='row'>
                 <button onClick={() => handleCategoryClick(1)} className='category_buttons'>Hand Tools</button>
                 <button onClick={() => handleCategoryClick(2)} className='category_buttons'>Electric Tools</button>

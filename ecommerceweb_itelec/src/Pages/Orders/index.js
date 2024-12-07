@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProductListOrder from '../ProductListOrder';
 import ProductListPending from '../ProductListPending';
 import ProductListInTransit from '../ProductListInTransit';
+import ProductListRateNow from '../ProductListRateNow';
+import ProductListReceived from '../ProductListReceived';
 import Header from '../Header';
 
 const Orders = () => {
@@ -10,47 +11,77 @@ const Orders = () => {
 
     const [orderStatus, setOrderStatus] = useState("Pending");
 
-    const goToHome = () => {
-        navigate('/Home');
-    };
-
-    const changeOrderStatus = () => {
-        // Cycle through statuses
-        if (orderStatus === "Pending") {
-            setOrderStatus("In Transit");
-        } else if (orderStatus === "In Transit") {
-            setOrderStatus("Delivered");
-        } else {
-            setOrderStatus("Pending");
-        }
-    };
-
     return (
         <>
             <Header />
-            <div>Orders Page</div>
 
-            <div>
-                {/* Clickable section to change the order status */}
-                <div 
+            {/* Buttons to filter order status */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginBottom: "20px",
+                    marginTop: "20px",
+                    gap: "10px", // Adds space between buttons
+                }}
+            >
+                <button
+                    onClick={() => setOrderStatus("Pending")}
                     style={{
-                        padding: "10px", 
-                        border: "1px solid #ccc", 
+                        padding: "10px",
+                        backgroundColor: orderStatus === "Pending" ? "#192B44" : "#f0f0f0",
+                        color: orderStatus === "Pending" ? "#fff" : "#000",
+                        border: "1px solid #ccc",
                         cursor: "pointer",
-                        backgroundColor: "#f4f4f4",
-                        display: "inline-block"
-                    }} 
-                    onClick={changeOrderStatus}
+                    }}
                 >
-                    Order Status: {orderStatus}
-                </div>
+                    Pending
+                </button>
+                <button
+                    onClick={() => setOrderStatus("In Transit")}
+                    style={{
+                        padding: "10px",
+                        backgroundColor: orderStatus === "In Transit" ? "#192B44" : "#f0f0f0",
+                        color: orderStatus === "In Transit" ? "#fff" : "#000",
+                        border: "1px solid #ccc",
+                        cursor: "pointer",
+                    }}
+                >
+                    In Transit
+                </button>
+                <button
+                    onClick={() => setOrderStatus("Rate Now")}
+                    style={{
+                        padding: "10px",
+                        backgroundColor: orderStatus === "Rate Now" ? "#192B44" : "#f0f0f0",
+                        color: orderStatus === "Rate Now" ? "#fff" : "#000",
+                        border: "1px solid #ccc",
+                        cursor: "pointer",
+                    }}
+                >
+                    Rate Now
+                </button>
+                <button
+                    onClick={() => setOrderStatus("Received")}
+                    style={{
+                        padding: "10px",
+                        backgroundColor: orderStatus === "Received" ? "#192B44" : "#f0f0f0",
+                        color: orderStatus === "Received" ? "#fff" : "#000",
+                        border: "1px solid #ccc",
+                        cursor: "pointer",
+                    }}
+                >
+                    Received
+                </button>
             </div>
 
-            <ProductListOrder />
-            <ProductListPending />
-            <ProductListInTransit />
+            {/* Render the respective component based on order status */}
+            {orderStatus === "Pending" && <ProductListPending />}
+            {orderStatus === "In Transit" && <ProductListInTransit />}
+            {orderStatus === "Rate Now" && <ProductListRateNow />}
+            {orderStatus === "Received" && <ProductListReceived />}
         </>
     );
-}
+};
 
 export default Orders;

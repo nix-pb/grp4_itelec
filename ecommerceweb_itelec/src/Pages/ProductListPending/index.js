@@ -7,17 +7,44 @@ const ProductListPending = () => {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
 
-  // Get user_id from localStorage
-  const userId = localStorage.getItem('user_id'); // Ensure 'user_id' is properly stored in localStorage
+  const userId = localStorage.getItem('user_id'); // Get user_id from localStorage
 
   const handleProductClick = (id) => {
-    navigate(`/product/${id}`); // Navigate to the product detail page
+    navigate(`/product/${id}`);
+  };
+
+  const cancelOrder = async (orderId) => {
+    try {
+      const response = await fetch(`http://localhost:5001/api/orders/${orderId}`, {
+        method: 'DELETE',
+      });
+    
+      if (!response.ok) {
+        // Attempt to parse JSON for detailed error, fallback to text
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || 'Failed to cancel order';
+        } catch {
+          errorMessage = `HTTP error! status: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+    
+      const data = await response.json();
+      setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+      alert(data.message || 'Order canceled successfully');
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      alert(error.message);
+    }
+    
   };
 
   useEffect(() => {
     const fetchOrders = async () => {
       if (!userId) {
-        setError('User ID is missing. Please log in.'); // Show error if user_id is not found
+        setError('User ID is missing. Please log in.');
         return;
       }
 
@@ -75,7 +102,15 @@ const ProductListPending = () => {
                 <p className="product-purchase-date-order">
                   Purchase Date: {new Date(order.purchase_date).toLocaleDateString()}
                 </p>
-                <button className="buy-again-button">Buy Again</button>
+                <button
+                  className="cancel-button"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering the card click
+                    cancelOrder(order.id);
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           ))

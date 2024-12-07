@@ -12,6 +12,7 @@ import ModalComponent from '../../Components/ModalComponent';
 const AdminHome = () => {
     const navigate = useNavigate(); 
     const location = useLocation();
+    const userId = localStorage.getItem('user_id');
 
     const [chartData, setChartData] = useState({ dates: [], quantities: [] });
     const [monthlySales, setMonthlySales] = useState({ revenue: 0, products_sold: 0, products_displayed: 0 });
@@ -40,9 +41,10 @@ const AdminHome = () => {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const userId = 1; // Use the logged-in user's ID here
-                const response = await axios.get(`http://localhost:5001/api/ordersadmin?seller_id=${userId}`);
-                setOrders(response.data);
+                if (userId) {
+                    const response = await axios.get(`http://localhost:5001/api/ordersadmin?seller_id=${userId}`);
+                    setOrders(response.data);
+                }
             } catch (error) {
                 console.error('Error fetching orders:', error);
             } finally {
@@ -50,7 +52,7 @@ const AdminHome = () => {
             }
         };
         fetchOrders();
-    }, []);
+    }, [userId]);
     
 
     const handleAddProductClick = () => {

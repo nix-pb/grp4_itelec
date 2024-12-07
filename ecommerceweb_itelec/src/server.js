@@ -141,10 +141,12 @@ app.post('/api/buyerregister', (req, res) => {
 app.post('/api/sellerregister', (req, res) => {
   const { username, password, email } = req.body;
 
+  // Validate input fields
   if (!username || !password || !email) {
     return res.status(400).json({ error: 'Username, password, and email are required.' });
   }
 
+  // Check if the seller's username already exists
   checkExistingSellerUsername(username, (err, existingSellers) => {
     if (err) {
       return res.status(500).json({ error: 'Internal server error.' });
@@ -154,6 +156,7 @@ app.post('/api/sellerregister', (req, res) => {
       return res.status(400).json({ error: 'Seller username already exists.' });
     }
 
+    // Check if the seller's email already exists
     checkExistingSellerEmail(email, (err, existingSellerEmail) => {
       if (err) {
         return res.status(500).json({ error: 'Internal server error.' });
@@ -163,26 +166,65 @@ app.post('/api/sellerregister', (req, res) => {
         return res.status(400).json({ error: 'Seller email already exists.' });
       }
 
+      // Hash the password
       bcrypt.hash(password, 10, (err, hash) => {
         if (err) {
           return res.status(500).json({ error: 'Error hashing password.' });
         }
 
-        const sql = 'INSERT INTO seller (username, password, email) VALUES (?, ?, ?)';
-        connection.query(sql, [username, hash, email], (err) => {
+        // Start a database transaction
+        connection.beginTransaction((err) => {
           if (err) {
-            return res.status(500).json({
-              error: 'Error inserting seller into database.',
-              details: err.message,
-              code: err.code,
-            });
+            return res.status(500).json({ error: 'Error starting transaction.' });
           }
-          res.status(201).json({ message: 'Seller created successfully!' });
+
+          // Step 1: Insert the seller into the 'seller' table
+          const sqlInsertSeller = 'INSERT INTO seller (username, password, email) VALUES (?, ?, ?)';
+          connection.query(sqlInsertSeller, [username, hash, email], (err, result) => {
+            if (err) {
+              return connection.rollback(() => {
+                res.status(500).json({
+                  error: 'Error inserting seller into database.',
+                  details: err.message,
+                  code: err.code,
+                });
+              });
+            }
+
+            const sellerId = result.insertId; // Get the seller's ID
+
+            // Step 2: Insert a new shop for the seller into the 'shops' table
+            const sqlInsertShop = 'INSERT INTO shops (username, owner_id) VALUES (?, ?)';
+            connection.query(sqlInsertShop, [`${username}'s Shop`, sellerId], (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  res.status(500).json({
+                    error: 'Error creating shop for the seller.',
+                    details: err.message,
+                    code: err.code,
+                  });
+                });
+              }
+
+              // Commit the transaction if both queries are successful
+              connection.commit((err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    res.status(500).json({ error: 'Error committing transaction.' });
+                  });
+                }
+
+                // Return success response
+                res.status(201).json({ message: 'Seller and shop created successfully!' });
+              });
+            });
+          });
         });
       });
     });
   });
 });
+
 
 // Buyer Login
 app.post('/api/buyerlogin', (req, res) => {
@@ -760,6 +802,110 @@ app.get('/api/orders_intransit', (req, res) => {
   });
 });
 
+// API to get received orders for a user
+app.get('/api/orders_ratenow', (req, res) => {
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
+
+  // Check if userId is provided
+  if (!userId) {
+    console.error('User ID is missing in the request');
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+
+  // SQL query to get in transit orders for the user
+  const sql = `
+    SELECT id, product_id, user_id, name, price, quantity, purchase_date, image, status 
+    FROM orders 
+    WHERE user_id = ? AND LOWER(status) = 'rate now'
+  `;
+
+  // Query the database to get orders
+  connection.query(sql, [userId], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Error fetching orders: ' + error.message });
+    }
+
+    // Log the fetched results for debugging
+    console.log('Orders fetched for userId:', userId, results);
+
+    // Send the results back to the client as JSON
+    res.status(200).json(results);
+  });
+});
+
+
+// API to get received orders for a user
+app.get('/api/orders_ratenow', (req, res) => {
+  const userId = req.query.user_id; 
+  console.log('Rate Now userId in API call:', userId); 
+
+  // Check if userId is provided
+  if (!userId) {
+    console.error('User ID is missing in the request');
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+
+  // SQL query to get in transit orders for the user
+  const sql = `
+    SELECT id, product_id, user_id, name, price, quantity, purchase_date, image, status 
+    FROM orders 
+    WHERE user_id = ? AND LOWER(status) = 'rate now'
+  `;
+
+  // Query the database to get orders
+  connection.query(sql, [userId], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Error fetching orders: ' + error.message });
+    }
+
+    // Log the fetched results for debugging
+    console.log('Orders fetched for userId:', userId, results);
+
+    // Send the results back to the client as JSON
+    res.status(200).json(results);
+  });
+});
+
+
+
+
+// API to get received orders for a user
+app.get('/api/orders_received', (req, res) => {
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
+
+  // Check if userId is provided
+  if (!userId) {
+    console.error('User ID is missing in the request');
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+
+  // SQL query to get in transit orders for the user
+  const sql = `
+    SELECT id, product_id, user_id, name, price, quantity, purchase_date, image, status 
+    FROM orders 
+    WHERE user_id = ? AND LOWER(status) = 'received'
+  `;
+
+  // Query the database to get orders
+  connection.query(sql, [userId], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Error fetching orders: ' + error.message });
+    }
+
+    // Log the fetched results for debugging
+    console.log('Orders fetched for userId:', userId, results);
+
+    // Send the results back to the client as JSON
+    res.status(200).json(results);
+  });
+});
+
+
 
 // Fetch orders for a specific seller, sorted by purchase_date
 app.get('/api/ordersadmin', (req, res) => {
@@ -786,6 +932,94 @@ app.get('/api/ordersadmin', (req, res) => {
     res.status(200).json(results);
   });
 });
+
+// API to update the order status to "Received"
+app.put('/api/mark-order-ratenow', (req, res) => {
+  const { order_id } = req.body;
+
+  // Validate the request body
+  if (!order_id) {
+    return res.status(400).json({ message: 'Order ID is required.' });
+  }
+
+  const sql = `
+    UPDATE orders
+    SET status = 'Rate Now'
+    WHERE id = ?
+  `;
+
+  connection.query(sql, [order_id], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Error updating order status: ' + error.message });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Order not found or status already updated.' });
+    }
+
+    res.status(200).json({ message: 'Order status updated to Received successfully.' });
+  });
+});
+
+
+// API to update the order status to "Received"
+app.put('/api/mark-order-received', (req, res) => {
+  const { order_id } = req.body;
+
+  // Validate the request body
+  if (!order_id) {
+    return res.status(400).json({ message: 'Order ID is required.' });
+  }
+
+  const sql = `
+    UPDATE orders
+    SET status = 'Received'
+    WHERE id = ?
+  `;
+
+  connection.query(sql, [order_id], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Error updating order status: ' + error.message });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Order not found or status already updated.' });
+    }
+
+    res.status(200).json({ message: 'Order status updated to Received successfully.' });
+  });
+});
+
+
+
+// API to delete an order by ID
+app.delete('/api/orders/:orderId', (req, res) => {
+  const orderId = req.params.orderId;
+
+  if (!orderId) {
+    return res.status(400).json({ message: 'Order ID is required' });
+  }
+
+  // SQL query to delete the order
+  const sql = `DELETE FROM orders WHERE id = ?`;
+
+  connection.query(sql, [orderId], (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ message: 'Failed to delete order: ' + error.message });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.status(200).json({ message: 'Order deleted successfully' });
+  });
+});
+
+
 
 
 // Update the status of an order
@@ -819,6 +1053,76 @@ app.put('/api/update-order-status', (req, res) => {
     res.status(200).json({ message: 'Order status updated successfully.' });
   });
 });
+
+
+// API to rate an order
+app.post('/api/orders/:orderId/rate', (req, res) => {
+  const { orderId } = req.params;
+  const { rating } = req.body;
+
+  // Validate rating (must be between 1 and 5)
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Invalid rating. Must be between 1 and 5.' });
+  }
+
+  // Step 1: Update the order's rating
+  const updateOrderRatingSql = `UPDATE orders SET rating = ? WHERE id = ?`;
+
+  connection.query(updateOrderRatingSql, [rating, orderId], (err, result) => {
+    if (err) {
+      console.error('Error updating order rating:', err);
+      return res.status(500).json({ message: 'Failed to update order rating.' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    // Step 2: Fetch the seller_id from the order to calculate the shop's rating
+    const fetchSellerIdSql = `
+      SELECT o.seller_id
+      FROM orders o
+      JOIN products p ON o.product_id = p.id
+      WHERE o.id = ?
+    `;
+
+    connection.query(fetchSellerIdSql, [orderId], (err, result) => {
+      if (err || result.length === 0) {
+        console.error('Error fetching seller_id:', err);
+        return res.status(500).json({ message: 'Failed to fetch seller information.' });
+      }
+
+      const sellerId = result[0].seller_id;
+
+      // Step 3: Recalculate the shop's rating based on the updated order rating
+      const recalculateShopRatingSql = `
+        UPDATE shops s
+        JOIN (
+          SELECT p.seller_id, AVG(o.rating) AS average_rating, COUNT(o.rating) AS rating_count
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.rating IS NOT NULL
+          GROUP BY p.seller_id
+        ) r ON s.seller_id = r.seller_id
+        SET s.average_rating = r.average_rating, s.rating_count = r.rating_count
+        WHERE s.seller_id = ?;
+      `;
+
+      // Recalculate the seller's (shop's) rating
+      connection.query(recalculateShopRatingSql, [sellerId], (err) => {
+        if (err) {
+          console.error('Error recalculating shop rating:', err);
+          return res.status(500).json({ message: 'Failed to update shop ratings.' });
+        }
+
+        res.status(200).json({ message: 'Rating submitted successfully and shop updated.' });
+      });
+    });
+  });
+});
+
+
+
 
 
 

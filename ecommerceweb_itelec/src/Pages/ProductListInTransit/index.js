@@ -2,42 +2,61 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
 
-const ProductListPending = () => {
+const ProductListInTransit = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
 
-  // Get user_id from localStorage
   const userId = localStorage.getItem('user_id'); // Use 'user_id' key from localStorage
-  console.log('User ID from localStorage:', userId); // Log userId for debugging
 
   const handleProductClick = (id) => {
     navigate(`/product/${id}`); // Navigate to the specific product detail page
   };
 
+  const handleMarkAsReceived = async (orderId) => {
+    try {
+      const response = await fetch('http://localhost:5001/api/mark-order-ratenow', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response from server:', errorData);
+        throw new Error(errorData.message || 'Failed to update order status');
+      }
+  
+      const data = await response.json();
+      console.log('Success:', data.message);
+      alert('Order status updated successfully!');
+    } catch (error) {
+      console.error('Error updating order status:', error.message);
+      alert('Failed to update order status. Please try again.');
+    }
+  };
+  
+
   useEffect(() => {
     const fetchOrders = async () => {
       if (!userId) {
-        console.error('User ID is not available in localStorage');
         setError('User ID is missing. Please log in.');
         return;
       }
 
       const url = `http://localhost:5001/api/orders_intransit?user_id=${userId}`;
-      console.log('Fetching orders for userId:', userId); // Log userId being passed
-      console.log('API URL:', url); // Log API endpoint
 
       try {
         const response = await fetch(url);
 
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('Failed to fetch orders:', response.status, errorData);
           throw new Error(`Failed to fetch orders: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('Fetched Orders:', data);
         setOrders(data);
       } catch (error) {
         console.error('Error fetching orders:', error);
@@ -48,12 +67,10 @@ const ProductListPending = () => {
     fetchOrders();
   }, [userId]);
 
-  console.log('All Orders:', orders);
-
   return (
     <div className="product-list-container-order">
       <div className="product-list-order">
-        {error && <p className="error-message">{error}</p>} {/* Show any error message */}
+        {error && <p className="error-message">{error}</p>}
 
         {orders.length === 0 ? (
           <p>No pending orders found for this user.</p>
@@ -85,7 +102,20 @@ const ProductListPending = () => {
                 <p className="product-purchase-date-order">
                   Purchase Date: {new Date(order.purchase_date).toLocaleDateString()}
                 </p>
-                <button className="buy-again-button">Buy Again</button>
+                <div className="product-actions">
+                  <button className="buy-again-button">Buy Again</button>
+                  {order.status === 'In Transit' && (
+                    <button
+                      className="received-button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent parent onClick
+                        handleMarkAsReceived(order.id);
+                      }}
+                    >
+                      Mark as Received
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -95,4 +125,4 @@ const ProductListPending = () => {
   );
 };
 
-export default ProductListPending;
+export default ProductListInTransit;

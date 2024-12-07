@@ -116,3 +116,27 @@
   color: #777;
   margin-top: 8px;
 }
+
+
+.cancel-button {
+  background-color: #e53935;
+  color: white; 
+  border: none;
+  padding: 10px 16px; 
+  cursor: pointer;
+  border-radius: 6px; 
+  font-size: 14px; 
+  font-weight: bold;
+  transition: background-color 0.3s ease; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); 
+  margin-bottom: 10px;
+}
+
+.cancel-button:hover {
+  background-color: #b71c1c;
+}
+
+.cancel-button:active {
+  background-color: #8e0000; 
+  box-shadow: none;
+}

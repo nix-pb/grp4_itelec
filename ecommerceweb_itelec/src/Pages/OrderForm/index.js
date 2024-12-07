@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
+import Payment from '../../Components/Payment';
 
 const OrderForm = () => {
   const location = useLocation();
@@ -28,50 +29,50 @@ const OrderForm = () => {
   // Handle order confirmation
   const handleConfirmOrder = async (e) => {
     e.preventDefault();
-  
+
     const user_id = localStorage.getItem('user_id');
     let hasError = false;
-  
+
     // Check for missing fields and show error messages
     if (!user_id) {
       toast.error("User information is missing. Please log in first.");
       hasError = true;
     }
-  
+
     if (!id) {
       toast.error("Product ID is missing.");
       hasError = true;
     }
-  
+
     if (!name) {
       toast.error("Product name is missing.");
       hasError = true;
     }
-  
+
     if (!price) {
       toast.error("Product price is missing.");
       hasError = true;
     }
-  
+
     if (!quantity || quantity <= 0) {
       toast.error("Quantity must be greater than 0.");
       hasError = true;
     }
-  
+
     if (!purchaseDate) {
       toast.error("Purchase date is required.");
       hasError = true;
     }
-  
+
     if (!seller_id) {
       toast.error("Seller ID is missing.");
       hasError = true;
     }
-  
+
     if (hasError) {
       return; // Stop the order submission if any field is invalid
     }
-  
+
     const orderData = {
       user_id: user_id,
       product_id: id,
@@ -82,22 +83,22 @@ const OrderForm = () => {
       image: image,  // Pass the image to the backend as well
       seller_id: seller_id, // Add seller_id to the order data
     };
-  
+
     try {
       const response = await fetch('http://localhost:5001/api/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       });
-  
+
       const responseData = await response.json(); // Get the response data
-  
+
       if (!response.ok) {
         // If the response is not OK, show the error message from the backend
         toast.error(`Failed to place order: ${responseData.message || "Unknown error"}`);
         return;
       }
-  
+
       toast.success("Your order has been processed successfully!");
       setTimeout(() => navigate('/home'), 3000); // Redirect after success
     } catch (error) {
@@ -106,7 +107,7 @@ const OrderForm = () => {
       toast.error("There was an issue placing your order. Please try again later.");
     }
   };
-  
+
 
   // Fetch product details on component mount
   useEffect(() => {
@@ -170,7 +171,11 @@ const OrderForm = () => {
             onChange={handleDateChange}
             required
           />
-
+          <hr />
+          <Payment
+            totalItems={quantity}
+            subtotal={price * quantity}
+          />
           <button type="submit">Confirm Order</button>
         </form>
       ) : (

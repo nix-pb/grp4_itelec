@@ -1,0 +1,31 @@
+.checkout-tab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #ff5722;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+}
+
+.checkout-content {
+  flex: 1;
+}
+
+.checkout-button {
+  background-color: #fff;
+  color: #ff5722;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+.checkout-button:hover {
+  background-color: #f1f1f1;
+}

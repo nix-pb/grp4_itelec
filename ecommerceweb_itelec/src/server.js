@@ -7,28 +7,27 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const http = require('http');
 const socketIo = require('socket.io');
-require('dotenv').config();
-const env = process.env || 'development';
+
 
 const app = express();
-const PORT = 5001;
+const PORT = 5001; 
 const server = http.createServer(app);
 const io = socketIo(server);
 
 
 app.use(express.json());
 
-app.use(cors());
-app.use(bodyParser.json());
+app.use(cors()); 
+app.use(bodyParser.json()); 
 
 
 
 const connection = mysql.createConnection({
-  host: env.DB_HOST || 'localhost',
-  user: env.DB_USERNAME || 'root',
-  password: env.DB_PASSWORD || 'Root12345@',
-  database: env.DB_NAME || 'rentatool_data',
-  port: env.DB_PORT || 3306,
+  host: 'localhost',
+  user: 'root',
+  password: 'Root12345@',
+  database: 'rentatool_data',
+  port: 3306,
 });
 
 connection.connect((err) => {
@@ -379,8 +378,8 @@ const multer = require('multer');
 const path = require('path');
 
 // Configure Multer for file uploads
-const upload = multer({
-  dest: 'uploads/',
+const upload = multer({ 
+  dest: 'uploads/', 
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
   fileFilter: (req, file, cb) => {
     // Ensure file is an image
@@ -462,77 +461,73 @@ app.post('/add-product', [
 
 
 
-// Place an order (buy)
 app.post('/api/buy', (req, res) => {
-  const { user_id, product_id, name, price, quantity, purchase_date, image, seller_id } = req.body;
-
-  // Input validation
-  if (!user_id || !product_id || !name || !price || !quantity || !purchase_date || !image) {
-    return res.status(400).json({ message: 'Missing required fields.' });
+  const orders = req.body; // This is an array of order data
+  
+  if (!Array.isArray(orders) || orders.length === 0) {
+    return res.status(400).json({ message: 'No order data provided.' });
   }
 
-  // Check if seller_id is provided
-  if (!seller_id) {
-    // Log the error if seller_id is missing
-    console.error('Error: Missing seller_id in the request');
-    return res.status(400).json({ message: 'Seller ID is missing. Please try again.' });
+  // Validate each order item
+  for (const order of orders) {
+    const { user_id, product_id, name, price, quantity, purchase_date, image, seller_id } = order;
+
+    // Create an array to track missing fields for each order
+    const missingFields = [];
+    
+    if (!user_id) missingFields.push('user_id');
+    if (!product_id) missingFields.push('product_id');
+    if (!name) missingFields.push('name');
+    if (!price) missingFields.push('price');
+    if (!quantity) missingFields.push('quantity');
+    if (!purchase_date) missingFields.push('purchase_date');
+    if (!image) missingFields.push('image');
+    if (!seller_id) missingFields.push('seller_id');
+
+    // If there are any missing fields, send a specific error message
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        message: `Missing required fields: ${missingFields.join(', ')} in the order data.` 
+      });
+    }
   }
 
-  const sqlOrder = `
-  INSERT INTO orders (user_id, product_id, name, price, quantity, purchase_date, image, seller_id)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`;
+  // Insert each order into the database
+  const sql = `
+    INSERT INTO orders (user_id, product_id, name, price, quantity, purchase_date, image, seller_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 
-  const sqlPayment = `
-  INSERT INTO payments (orderId, itemCount, itemPrice, subtotal, shippingFee)
-  VALUES (?, ?, ?, ?, ?)
-`;
-
-  connection.query(
-    sqlOrder,
-    [user_id, product_id, name, price, quantity, purchase_date, image, seller_id],
-    (err, orderResults) => {
-      if (err) {
-        // Log any SQL errors
-        console.error('Database error:', err);
-        return res.status(500).json({
-          message: 'An error occurred while placing your order. Please try again later.',
-          error: err.message || 'Unknown database error'
-        });
-      }
-
-      const orderId = orderResults.insertId;
-      const itemCount = quantity;
-      const itemPrice = price;
-      const subtotal = itemCount * itemPrice;
-      const shippingFee = 50;
-
+  const orderPromises = orders.map(order =>
+    new Promise((resolve, reject) => {
       connection.query(
-        sqlPayment,
-        [orderId, itemCount, itemPrice, subtotal, shippingFee],
-        (paymentErr) => {
-          if (paymentErr) {
-            // Log payment table errors
-            console.error('Payment table error:', paymentErr);
-            return res.status(500).json({
-              message: 'An error occurred while processing the payment. Please try again later.',
-              error: paymentErr.message || 'Unknown database error'
-            });
+        sql,
+        [order.user_id, order.product_id, order.name, order.price, order.quantity, order.purchase_date, order.image, order.seller_id],
+        (err, results) => {
+          if (err) {
+            console.error('Database error:', err);
+            reject({ message: 'An error occurred while placing an order.', error: err.message });
+          } else {
+            resolve(results.insertId);
           }
-
-          res.status(200).json({
-            message: 'Order and payment processed successfully!',
-            orderId
-          });
         }
       );
-    }
+    })
   );
 
+  // Wait for all order promises to resolve
+  Promise.all(orderPromises)
+    .then(orderIds => {
+      res.status(200).json({ message: 'Order(s) placed successfully!', orderIds });
+    })
+    .catch(error => {
+      res.status(500).json({ message: error.message || 'Failed to place orders.' });
+    });
 });
 
 
 
+ 
 // update a product
 app.put('/api/products/:id', [
   body('name').optional().notEmpty().withMessage('Name is required'),
@@ -581,35 +576,35 @@ app.delete('/api/products/:id', (req, res) => {
 
   const deleteQuery = 'DELETE FROM products WHERE id = ?';
   connection.query(deleteQuery, [productId], (error, results) => {
-    if (error) {
-      console.error('Error deleting product:', error);
-      return res.status(500).json({ error: 'Error deleting product' });
-    }
+      if (error) {
+          console.error('Error deleting product:', error);
+          return res.status(500).json({ error: 'Error deleting product' });
+      }
 
-    if (results.affectedRows === 0) {
+      if (results.affectedRows === 0) {
+          
+          return res.status(404).json({ error: 'Product not found' });
+      }
 
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-
-    res.status(200).json({ message: 'Product deleted successfully' });
+      
+      res.status(200).json({ message: 'Product deleted successfully' }); 
   });
 });
 
 
 
 app.get('/api/user-profile', async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.id; 
   try {
-    const [user] = await db.query('SELECT name, email FROM users WHERE id = ?', [userId]);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ error: 'User not found' });
-    }
+      const [user] = await db.query('SELECT name, email FROM users WHERE id = ?', [userId]);
+      if (user) {
+          res.json(user);
+      } else {
+          res.status(404).json({ error: 'User not found' });
+      }
   } catch (error) {
-    console.error('Error fetching user profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
+      console.error('Error fetching user profile:', error);
+      res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -681,23 +676,6 @@ app.get('/api/products/:id', (req, res) => {
   });
 });
 
-// Add product to cart (for buyers)
-app.post('/api/cartlist', authenticate, (req, res) => {
-  const buyerId = req.user.id;
-  const { productId, quantity } = req.body;
-
-  if (!productId || !quantity) {
-    return res.status(400).json({ error: 'Product ID and quantity are required.' });
-  }
-
-  const sql = 'INSERT INTO cart (buyer_id, product_id, quantity) VALUES (?, ?, ?)';
-  connection.query(sql, [buyerId, productId, quantity], (err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error adding product to cart.' });
-    }
-    res.status(201).json({ message: 'Product added to cart successfully!' });
-  });
-});
 
 // Route to get all products
 app.get('/api/products', (req, res) => {
@@ -705,13 +683,13 @@ app.get('/api/products', (req, res) => {
   const sql = 'SELECT * FROM products';
 
   connection.query(sql, (error, results) => {
-    if (error) {
-      console.error('SQL Error:', error);
-      return res.status(500).json({ message: 'Failed to fetch products: ' + error.message });
-    }
-
-    // Send the products as the response
-    res.status(200).json(results);
+      if (error) {
+          console.error('SQL Error:', error);
+          return res.status(500).json({ message: 'Failed to fetch products: ' + error.message });
+      }
+      
+      // Send the products as the response
+      res.status(200).json(results);
   });
 });
 
@@ -756,8 +734,8 @@ app.get('/api/user-products', (req, res) => {
 
 // API to get pending orders for a specific user
 app.get('/api/orders_pending', (req, res) => {
-  const userId = req.query.user_id;
-  console.log('Received userId in API call:', userId);
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
 
   // Check if userId is provided
   if (!userId) {
@@ -802,8 +780,8 @@ app.get('/api/orders_pending', (req, res) => {
 
 // API to get in transit orders for a user
 app.get('/api/orders_intransit', (req, res) => {
-  const userId = req.query.user_id;
-  console.log('Received userId in API call:', userId);
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
 
   // Check if userId is provided
   if (!userId) {
@@ -835,8 +813,8 @@ app.get('/api/orders_intransit', (req, res) => {
 
 // API to get received orders for a user
 app.get('/api/orders_ratenow', (req, res) => {
-  const userId = req.query.user_id;
-  console.log('Received userId in API call:', userId);
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
 
   // Check if userId is provided
   if (!userId) {
@@ -869,8 +847,8 @@ app.get('/api/orders_ratenow', (req, res) => {
 
 // API to get received orders for a user
 app.get('/api/orders_ratenow', (req, res) => {
-  const userId = req.query.user_id;
-  console.log('Rate Now userId in API call:', userId);
+  const userId = req.query.user_id; 
+  console.log('Rate Now userId in API call:', userId); 
 
   // Check if userId is provided
   if (!userId) {
@@ -901,10 +879,12 @@ app.get('/api/orders_ratenow', (req, res) => {
 });
 
 
+
+
 // API to get received orders for a user
 app.get('/api/orders_received', (req, res) => {
-  const userId = req.query.user_id;
-  console.log('Received userId in API call:', userId);
+  const userId = req.query.user_id; 
+  console.log('Received userId in API call:', userId); 
 
   // Check if userId is provided
   if (!userId) {
@@ -1151,7 +1131,7 @@ app.post('/api/orders/:orderId/rate', (req, res) => {
 });
 
 
-// shop fetch
+// Ensure this API route is correctly set up
 app.get('/api/shops/:seller_id', (req, res) => {
   const { seller_id } = req.params;
 
@@ -1176,7 +1156,7 @@ app.get('/api/shops/:seller_id', (req, res) => {
     }
 
     const shop = shopResult[0];
-
+    // Ensure fields are explicitly defined, even if null
     const response = {
       id: shop.id || null,
       username: shop.username || null,
@@ -1191,29 +1171,45 @@ app.get('/api/shops/:seller_id', (req, res) => {
 
 
 
-// API endpoint to fetch products for a specific seller_id
+// shop list
 app.get('/api/productsshop', (req, res) => {
-  const { seller_id } = req.query;
-  console.log('Received seller_id:', seller_id);  // Log the seller_id to check if it's correct
+  const { seller_id } = req.query;  // Use req.query to extract seller_id
 
   if (!seller_id) {
-    return res.status(400).json({ error: 'seller_id is required' });
+    return res.status(400).json({ message: 'Seller ID is required.' });
   }
 
-  // Filter products based on seller_id
-  const sellerProducts = products.filter(product => product.seller_id === seller_id);
+  // SQL query to fetch products for a specific seller
+  const fetchProductsSql = `
+    SELECT id, name, price, term_value, term_id, image, seller_id
+    FROM products
+    WHERE seller_id = ?
+  `;
 
-  if (sellerProducts.length === 0) {
-    return res.status(404).json({ message: 'No products found for this seller' });
-  }
+  connection.query(fetchProductsSql, [seller_id], (err, productResults) => {
+    if (err) {
+      console.error('Error fetching products:', err);
+      return res.status(500).json({ message: 'Database error fetching products.' });
+    }
 
-  res.json(sellerProducts);
+    if (productResults.length === 0) {
+      return res.status(404).json({ message: 'No products found for this seller.' });
+    }
+
+    // Map the result to a response format
+    const products = productResults.map(product => ({
+      id: product.id || null,
+      name: product.name || null,
+      price: product.price || null,
+      term_value: product.term_value || null,
+      term_id: product.term_id || null,
+      image: product.image || null,
+      seller_id: product.seller_id || null
+    }));
+
+    res.status(200).json(products);  // Send the products as a JSON response
+  });
 });
-
-app.get('/health-check', (req, res) => {
-  res.send('Backend server is up and running!');
-});
-
 
 
 //cartlist
@@ -1309,30 +1305,6 @@ app.get('/api/cartlistfetch', (req, res) => {
     });
   });
 });
-
-
-
-// Fetch orders for a specific seller, sorted by purchase_date
-app.get('/api/payment-methods', (req, res) => {
-
-  const sql = `
-    SELECT *
-    FROM payment_methods
-  `;
-
-  connection.query(sql, (error, results) => {
-    if (error) {
-      console.error('SQL Error:', error);
-      return res.status(500).json({ message: 'Failed to fetch payment methods: ' + error.message });
-    }
-
-    res.status(200).json(results);
-  });
-
-
-});
-
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

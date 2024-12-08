@@ -1151,7 +1151,7 @@ app.post('/api/orders/:orderId/rate', (req, res) => {
 });
 
 
-// Ensure this API route is correctly set up
+// shop fetch
 app.get('/api/shops/:seller_id', (req, res) => {
   const { seller_id } = req.params;
 
@@ -1176,7 +1176,7 @@ app.get('/api/shops/:seller_id', (req, res) => {
     }
 
     const shop = shopResult[0];
-    // Ensure fields are explicitly defined, even if null
+
     const response = {
       id: shop.id || null,
       username: shop.username || null,
@@ -1212,6 +1212,102 @@ app.get('/api/productsshop', (req, res) => {
 
 app.get('/health-check', (req, res) => {
   res.send('Backend server is up and running!');
+});
+
+
+
+//cartlist
+app.post('/api/cartlist', (req, res) => {
+  const { productId, userId, name, price, image, quantity } = req.body;
+
+  // Validate input and return specific error message for each missing field
+  if (!productId) {
+    return res.status(400).json({ message: 'Product ID is required.' });
+  }
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required.' });
+  }
+  if (!name) {
+    return res.status(400).json({ message: 'Product name is required.' });
+  }
+  if (!price) {
+    return res.status(400).json({ message: 'Product price is required.' });
+  }
+  if (!quantity) {
+    return res.status(400).json({ message: 'Quantity is required.' });
+  }
+
+  // Check if the user (buyer) exists in the buyer table
+  const checkUserSql = 'SELECT id FROM buyer WHERE id = ?';
+  connection.query(checkUserSql, [userId], (err, results) => {
+    if (err) {
+      console.error('Error checking user:', err);
+      return res.status(500).json({ message: 'Database error checking user.' });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({ message: 'User not found.' });
+    }
+
+    // SQL query to insert product into the cart
+    const insertCartSql = `
+      INSERT INTO cartlist (product_id, user_id, name, price, image, quantity)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    connection.query(
+      insertCartSql,
+      [productId, userId, name, price, image, quantity],
+      (err, results) => {
+        if (err) {
+          console.error('Error adding product to cart:', err);
+          return res.status(500).json({ message: 'Database error adding product to cart.' });
+        }
+
+        res.status(201).json({ message: 'Product added to cart successfully.', cartId: results.insertId });
+      }
+    );
+  });
+});
+
+
+
+
+app.get('/api/cartlistfetch', (req, res) => {
+  const userId = req.query.user_id;
+
+  // Validate user ID
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required.' });
+  }
+
+  // Check if the user exists
+  const checkUserSql = 'SELECT id FROM buyer WHERE id = ?';
+  connection.query(checkUserSql, [userId], (err, results) => {
+    if (err) {
+      console.error('Error checking user:', err);
+      return res.status(500).json({ message: 'Database error checking user.' });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({ message: 'User not found.' });
+    }
+
+    // Fetch cart items for the given user ID
+    const query = 'SELECT * FROM cartlist WHERE user_id = ?';
+    connection.query(query, [userId], (err, results) => {
+      if (err) {
+        console.error('Error fetching cart items:', err);
+        return res.status(500).json({ message: 'Database error fetching cart items.' });
+      }
+
+      if (results.length > 0) {
+        res.json(results);  // Return the cart items
+      } else {
+        res.status(404).json({ message: 'No products found for this user.' });
+      }
+    });
+  });
 });
 
 
